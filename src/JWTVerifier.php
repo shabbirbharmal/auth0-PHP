@@ -164,9 +164,6 @@ class JWTVerifier
      * @throws InvalidTokenException If the token does not have 3 sections.
      * @throws InvalidTokenException If the algorithm used to sign the token is not supported.
      * @throws InvalidTokenException If the token does not have a valid audience.
-     * @throws CoreException If an RS256 token is missing a key ID.
-     * @throws CoreException If an RS256 token does not have a valid issuer.
-     * @throws CoreException If the token cannot be decoded.
      */
     public function verifyAndDecode($jwt)
     {
@@ -209,11 +206,11 @@ class JWTVerifier
             $secret = $this->client_secret;
         } else {
             if (empty($head_decoded->kid)) {
-                throw new CoreException('Token key ID is missing for RS256 token');
+                throw new InvalidTokenException('Token key ID is missing for RS256 token');
             }
 
             if (empty($body_decoded->iss) || ! in_array($body_decoded->iss, $this->authorized_iss)) {
-                throw new CoreException('We cannot trust on a token issued by `'.$body_decoded->iss.'`');
+                throw new InvalidTokenException('We cannot trust on a token issued by `'.$body_decoded->iss.'`');
             }
 
             $jwks_url                   = $body_decoded->iss.$this->jwks_path;
@@ -223,7 +220,7 @@ class JWTVerifier
         try {
             return $this->decodeToken($jwt, $secret);
         } catch (\Exception $e) {
-            throw new CoreException($e->getMessage());
+            throw new InvalidTokenException($e->getMessage());
         }
     }
 

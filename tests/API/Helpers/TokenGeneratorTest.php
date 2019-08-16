@@ -233,8 +233,6 @@ class TokenTest extends \PHPUnit_Framework_TestCase
      * Test that an invalid audience is rejected.
      *
      * @return void
-     *
-     * @throws CoreException See Auth0\SDK\JWTVerifier::verifyAndDecode().
      */
     public function testThatTokenWithInvalidAudThrowsException()
     {
@@ -276,7 +274,7 @@ class TokenTest extends \PHPUnit_Framework_TestCase
         $error_msg        = 'No exception caught';
         try {
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.uniqid() );
-        } catch (CoreException $e) {
+        } catch (InvalidTokenException $e) {
             $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'Token key ID is missing for RS256 token');
         }
@@ -294,7 +292,7 @@ class TokenTest extends \PHPUnit_Framework_TestCase
         $error_msg        = 'No exception caught';
         try {
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.uniqid() );
-        } catch (CoreException $e) {
+        } catch (InvalidTokenException $e) {
             $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'We cannot trust on a token issued by');
         }
@@ -317,7 +315,7 @@ class TokenTest extends \PHPUnit_Framework_TestCase
         $error_msg        = 'No exception caught';
         try {
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.JWT::urlsafeB64Encode(uniqid()) );
-        } catch (CoreException $e) {
+        } catch (InvalidTokenException $e) {
             $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'Signature verification failed');
         }
