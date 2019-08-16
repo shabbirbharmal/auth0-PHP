@@ -212,7 +212,7 @@ class JWTVerifier
             }
 
             if (empty($body_decoded->iss) || ! in_array($body_decoded->iss, $this->authorized_iss)) {
-                throw new InvalidTokenException('We cannot trust on a token issued by `'.$body_decoded->iss.'`');
+                throw new InvalidTokenException('Missing or invalid token issuer');
             }
 
             $jwks_url                   = $body_decoded->iss.$this->jwks_path;
@@ -233,6 +233,15 @@ class JWTVerifier
         // Check if issued-at is missing.
         if (empty( $jwt_obj->iat )) {
             throw new InvalidTokenException( 'Missing token iat' );
+        }
+
+        // Check if issuer is missing.
+        if (empty( $jwt_obj->iss )) {
+            throw new InvalidTokenException( 'Missing token iss' );
+        }
+
+        if ($this->authorized_iss && ! in_array($jwt_obj->iss, $this->authorized_iss)) {
+            throw new InvalidTokenException('Invalid token iss');
         }
 
         // Check if audience is missing.
