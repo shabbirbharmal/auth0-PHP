@@ -56,6 +56,7 @@
     <rule ref="Generic.Metrics"/>
     <rule ref="Generic.NamingConventions">
         <exclude name="Generic.NamingConventions.CamelCapsFunctionName.ScopeNotCamelCaps"/>
+        <exclude name="Generic.Metrics.CyclomaticComplexity.TooHigh"/>
     </rule>
     <rule ref="Generic.PHP">
         <exclude name="Generic.PHP.ClosingPHPTag"/>

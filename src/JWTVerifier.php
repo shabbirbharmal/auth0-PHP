@@ -192,16 +192,6 @@ class JWTVerifier
             throw new InvalidTokenException('Token algorithm not supported');
         }
 
-        // Validate the token audience, if present.
-        if (! empty($body_decoded->aud)) {
-            $audience = is_array($body_decoded->aud) ? $body_decoded->aud : [$body_decoded->aud];
-            if (! count(array_intersect($audience, $this->valid_audiences))) {
-                $message  = 'Invalid token audience '.implode( ', ', $audience );
-                $message .= '; expected '.implode( ', ', $this->valid_audiences );
-                throw new InvalidTokenException($message);
-            }
-        }
-
         if ('HS256' === $head_decoded->alg) {
             $secret = $this->client_secret;
         } else {
@@ -218,10 +208,23 @@ class JWTVerifier
         }
 
         try {
-            return $this->decodeToken($jwt, $secret);
+            $decoded_token = $this->decodeToken($jwt, $secret);
         } catch (\Exception $e) {
             throw new InvalidTokenException($e->getMessage());
         }
+
+        // Check if audience is missing.
+        if (empty( $decoded_token->aud )) {
+            throw new InvalidTokenException( 'Missing token aud' );
+        }
+
+        // Check if the token audience is allowed.
+        $token_audience = is_array($body_decoded->aud) ? $body_decoded->aud : [$body_decoded->aud];
+        if (! count(array_intersect($token_audience, $this->valid_audiences))) {
+            throw new InvalidTokenException( 'Invalid token aud' );
+        }
+
+        return $decoded_token;
     }
 
     /**
