@@ -225,6 +225,16 @@ class JWTVerifier
             throw new InvalidTokenException($e->getMessage());
         }
 
+        // Check if expiration is missing.
+        if (empty( $jwt_obj->exp )) {
+            throw new InvalidTokenException( 'Missing token exp' );
+        }
+
+        // Check if issued-at is missing.
+        if (empty( $jwt_obj->iat )) {
+            throw new InvalidTokenException( 'Missing token iat' );
+        }
+
         // Check if audience is missing.
         if (empty( $jwt_obj->aud )) {
             throw new InvalidTokenException( 'Missing token aud' );
@@ -237,7 +247,7 @@ class JWTVerifier
         }
 
         // Check token azp value if token contains multiple audiences.
-        if ( count( $token_aud ) > 1 && empty( $jwt_obj->azp ) ) {
+        if (count( $token_aud ) > 1 && empty( $jwt_obj->azp )) {
             throw new InvalidTokenException( 'Missing token azp' );
         }
 
