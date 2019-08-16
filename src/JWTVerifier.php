@@ -57,6 +57,13 @@ class JWTVerifier
     protected $client_secret;
 
     /**
+     * Application Client ID.
+     *
+     * @var string|null
+     */
+    protected $client_id;
+
+    /**
      * Path to the JWKS for RS256 tokens.
      *
      * @var string
@@ -105,6 +112,11 @@ class JWTVerifier
         // JWKS path to use; see variable declaration above for default.
         if (isset($config['jwks_path'])) {
             $this->jwks_path = (string) $config['jwks_path'];
+        }
+
+        // Client ID to validate azp claim.
+        if (isset($config['client_id'])) {
+            $this->client_id = (string) $config['client_id'];
         }
 
         // Legacy misspelling in JWT library.
@@ -208,23 +220,28 @@ class JWTVerifier
         }
 
         try {
-            $decoded_token = $this->decodeToken($jwt, $secret);
+            $jwt_obj = $this->decodeToken($jwt, $secret);
         } catch (\Exception $e) {
             throw new InvalidTokenException($e->getMessage());
         }
 
         // Check if audience is missing.
-        if (empty( $decoded_token->aud )) {
+        if (empty( $jwt_obj->aud )) {
             throw new InvalidTokenException( 'Missing token aud' );
         }
 
         // Check if the token audience is allowed.
-        $token_audience = is_array($body_decoded->aud) ? $body_decoded->aud : [$body_decoded->aud];
-        if (! count(array_intersect($token_audience, $this->valid_audiences))) {
+        $token_aud = is_array($jwt_obj->aud) ? $jwt_obj->aud : [$jwt_obj->aud];
+        if (! count(array_intersect($token_aud, $this->valid_audiences))) {
             throw new InvalidTokenException( 'Invalid token aud' );
         }
 
-        return $decoded_token;
+        // Check token azp value if token contains multiple audiences.
+        if ( count( $token_aud ) > 1 && empty( $jwt_obj->azp ) ) {
+            throw new InvalidTokenException( 'Missing token azp' );
+        }
+
+        return $jwt_obj;
     }
 
     /**

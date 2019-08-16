@@ -65,4 +65,29 @@ class JWTVerifierTest extends \PHPUnit_Framework_TestCase
 
         $this->assertStringStartsWith( 'Invalid token aud', $err_msg, $err_msg );
     }
+
+    public function testThatTokenMissingAzpFails()
+    {
+        $verifier = new JWTVerifier( [
+            'valid_audiences' => [ '__valid_audience_1__' ],
+            'supported_algs' => [ 'HS256' ],
+            'client_secret' => '__client_secret__',
+            'secret_base64_encoded' => false,
+        ] );
+
+        $jwt_payload = [
+            'sub' => uniqid(),
+            'aud' => [ '__valid_audience_1__', '__valid_audience_2__' ],
+        ];
+        $jwt         = JWT::encode( $jwt_payload, '__client_secret__', 'HS256' );
+
+        try {
+            $err_msg = 'No error';
+            $verifier->verifyAndDecode( $jwt );
+        } catch (InvalidTokenException $e) {
+            $err_msg = $e->getMessage();
+        }
+
+        $this->assertStringStartsWith( 'Missing token azp', $err_msg, $err_msg );
+    }
 }
