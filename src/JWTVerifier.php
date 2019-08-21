@@ -57,13 +57,6 @@ class JWTVerifier
     protected $client_secret;
 
     /**
-     * Application Client ID.
-     *
-     * @var string|null
-     */
-    protected $client_id;
-
-    /**
      * Path to the JWKS for RS256 tokens.
      *
      * @var string
@@ -112,11 +105,6 @@ class JWTVerifier
         // JWKS path to use; see variable declaration above for default.
         if (isset($config['jwks_path'])) {
             $this->jwks_path = (string) $config['jwks_path'];
-        }
-
-        // Client ID to validate azp claim.
-        if (isset($config['client_id'])) {
-            $this->client_id = (string) $config['client_id'];
         }
 
         // Legacy misspelling in JWT library.
@@ -176,6 +164,9 @@ class JWTVerifier
      * @throws InvalidTokenException If the token does not have 3 sections.
      * @throws InvalidTokenException If the algorithm used to sign the token is not supported.
      * @throws InvalidTokenException If the token does not have a valid audience.
+     * @throws CoreException If an RS256 token is missing a key ID.
+     * @throws CoreException If an RS256 token does not have a valid issuer.
+     * @throws CoreException If the token cannot be decoded.
      */
     public function verifyAndDecode($jwt)
     {
@@ -204,15 +195,25 @@ class JWTVerifier
             throw new InvalidTokenException('Token algorithm not supported');
         }
 
+        // Validate the token audience, if present.
+        if (! empty($body_decoded->aud)) {
+            $audience = is_array($body_decoded->aud) ? $body_decoded->aud : [$body_decoded->aud];
+            if (! count(array_intersect($audience, $this->valid_audiences))) {
+                $message  = 'Invalid token audience '.implode( ', ', $audience );
+                $message .= '; expected '.implode( ', ', $this->valid_audiences );
+                throw new InvalidTokenException($message);
+            }
+        }
+
         if ('HS256' === $head_decoded->alg) {
             $secret = $this->client_secret;
         } else {
             if (empty($head_decoded->kid)) {
-                throw new InvalidTokenException('Token key ID is missing for RS256 token');
+                throw new CoreException('Token key ID is missing for RS256 token');
             }
 
             if (empty($body_decoded->iss) || ! in_array($body_decoded->iss, $this->authorized_iss)) {
-                throw new InvalidTokenException('Missing or invalid token issuer');
+                throw new CoreException('We cannot trust on a token issued by `'.$body_decoded->iss.'`');
             }
 
             $jwks_url                   = $body_decoded->iss.$this->jwks_path;
@@ -220,47 +221,10 @@ class JWTVerifier
         }
 
         try {
-            $jwt_obj = $this->decodeToken($jwt, $secret);
+            return $this->decodeToken($jwt, $secret);
         } catch (\Exception $e) {
-            throw new InvalidTokenException($e->getMessage());
+            throw new CoreException($e->getMessage());
         }
-
-        // Check if expiration is missing.
-        if (empty( $jwt_obj->exp )) {
-            throw new InvalidTokenException( 'Missing token exp' );
-        }
-
-        // Check if issued-at is missing.
-        if (empty( $jwt_obj->iat )) {
-            throw new InvalidTokenException( 'Missing token iat' );
-        }
-
-        // Check if issuer is missing.
-        if (empty( $jwt_obj->iss )) {
-            throw new InvalidTokenException( 'Missing token iss' );
-        }
-
-        if ($this->authorized_iss && ! in_array($jwt_obj->iss, $this->authorized_iss)) {
-            throw new InvalidTokenException('Invalid token iss');
-        }
-
-        // Check if audience is missing.
-        if (empty( $jwt_obj->aud )) {
-            throw new InvalidTokenException( 'Missing token aud' );
-        }
-
-        // Check if the token audience is allowed.
-        $token_aud = is_array($jwt_obj->aud) ? $jwt_obj->aud : [$jwt_obj->aud];
-        if (! count(array_intersect($token_aud, $this->valid_audiences))) {
-            throw new InvalidTokenException( 'Invalid token aud' );
-        }
-
-        // Check token azp value if token contains multiple audiences.
-        if (count( $token_aud ) > 1 && empty( $jwt_obj->azp )) {
-            throw new InvalidTokenException( 'Missing token azp' );
-        }
-
-        return $jwt_obj;
     }
 
     /**

@@ -192,8 +192,8 @@ class RequestBuilder
     public function getParams()
     {
         $paramsClean = [];
-        foreach ( $this->params as $param => $value ) {
-            if ( ! is_null( $value ) && '' !== $value ) {
+        foreach ($this->params as $param => $value) {
+            if (! is_null( $value ) && '' !== $value) {
                 $paramsClean[] = sprintf( '%s=%s', $param, $value );
             }
         }

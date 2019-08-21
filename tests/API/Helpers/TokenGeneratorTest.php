@@ -233,6 +233,8 @@ class TokenTest extends \PHPUnit_Framework_TestCase
      * Test that an invalid audience is rejected.
      *
      * @return void
+     *
+     * @throws CoreException See Auth0\SDK\JWTVerifier::verifyAndDecode().
      */
     public function testThatTokenWithInvalidAudThrowsException()
     {
@@ -242,14 +244,14 @@ class TokenTest extends \PHPUnit_Framework_TestCase
             'authorized_iss' => [ '__valid_iss__' ],
         ] );
 
-        // A token without a key ID should throw an exception.
+        // 1. A token with an invalid audience should throw an exception.
         $head_obj      = new \stdClass();
         $head_obj->typ = 'JWT';
         $head_obj->alg = 'RS256';
         $jwt_head      = JWT::urlsafeB64Encode(JWT::jsonEncode($head_obj));
 
         $payload_obj      = new \stdClass();
-        $payload_obj->aud = '__valid_aud__';
+        $payload_obj->aud = ['__invalid_aud__'];
         $jwt_payload      = JWT::urlsafeB64Encode(JWT::jsonEncode($payload_obj));
 
         $caught_exception = false;
@@ -258,12 +260,30 @@ class TokenTest extends \PHPUnit_Framework_TestCase
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.uniqid() );
         } catch (InvalidTokenException $e) {
             $error_msg        = $e->getMessage();
+            $caught_exception = $this->errorHasString(
+                $e,
+                'Invalid token audience __invalid_aud__; expected __valid_aud__'
+            );
+        }
+
+        $this->assertTrue($caught_exception, $error_msg);
+
+        // 2. A token without a key ID should throw an exception.
+        $payload_obj->aud = '__valid_aud__';
+        $jwt_payload      = JWT::urlsafeB64Encode(JWT::jsonEncode($payload_obj));
+
+        $caught_exception = false;
+        $error_msg        = 'No exception caught';
+        try {
+            $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.uniqid() );
+        } catch (CoreException $e) {
+            $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'Token key ID is missing for RS256 token');
         }
 
         $this->assertTrue($caught_exception, $error_msg);
 
-        // A token with an invalid issuer should throw an exception.
+        // 3. A token with an invalid issuer should throw an exception.
         $head_obj->kid = uniqid();
         $jwt_head      = JWT::urlsafeB64Encode(JWT::jsonEncode($head_obj));
 
@@ -274,14 +294,14 @@ class TokenTest extends \PHPUnit_Framework_TestCase
         $error_msg        = 'No exception caught';
         try {
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.uniqid() );
-        } catch (InvalidTokenException $e) {
+        } catch (CoreException $e) {
             $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'We cannot trust on a token issued by');
         }
 
         $this->assertTrue($caught_exception, $error_msg);
 
-        // A token with an invalid signature should throw an exception.
+        // 4. A token with an invalid signature should throw an exception.
         $verifier = new JWTVerifier( [
             'valid_audiences' => [ '__valid_aud__' ],
             'client_secret' => self::CLIENT_SECRET,
@@ -297,7 +317,7 @@ class TokenTest extends \PHPUnit_Framework_TestCase
         $error_msg        = 'No exception caught';
         try {
             $verifier->verifyAndDecode( $jwt_head.'.'.$jwt_payload.'.'.JWT::urlsafeB64Encode(uniqid()) );
-        } catch (InvalidTokenException $e) {
+        } catch (CoreException $e) {
             $error_msg        = $e->getMessage();
             $caught_exception = $this->errorHasString($e, 'Signature verification failed');
         }
@@ -383,11 +403,7 @@ class TokenTest extends \PHPUnit_Framework_TestCase
             ->setConstructorArgs( [ $verifier_args, $mocked_jwks ] )
             ->setMethods( [ 'decodeToken' ] )
             ->getMock();
-
-        $mocked_jwt->method( 'decodeToken' )->willReturn( (object) [
-            'sub' => $expected_sub,
-            'aud' => self::CLIENT_ID,
-        ] );
+        $mocked_jwt->method( 'decodeToken' )->willReturn( (object) ['sub' => $expected_sub] );
 
         $head_obj      = new \stdClass();
         $head_obj->typ = 'JWT';
